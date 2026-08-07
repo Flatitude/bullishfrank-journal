@@ -25,17 +25,20 @@ export default function Home() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Form State
+  // Default date string (YYYY-MM-DD)
+  const today = new Date().toISOString().split('T')[0];
+
+  // Form State - All empty by default except date
   const [symbol, setSymbol] = useState('');
-  const [type, setType] = useState('BUY');
+  const [type, setType] = useState('');
   const [entry, setEntry] = useState('');
   const [stopLoss, setStopLoss] = useState('');
   const [takeProfit, setTakeProfit] = useState('');
   const [exit, setExit] = useState('');
   const [lotSize, setLotSize] = useState('');
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState(today);
   const [timeZone, setTimeZone] = useState('UTC');
-  const [emotion, setEmotion] = useState('Disciplined');
+  const [emotion, setEmotion] = useState('');
   const [chartLink, setChartLink] = useState('');
 
   // 1. Fetch trades from Supabase on load
@@ -83,7 +86,7 @@ export default function Home() {
       take_profit: tpNum,
       exit: exitNum,
       lot_size: lotNum,
-      date: date || new Date().toISOString().split('T')[0],
+      date: date || today,
       time_zone: timeZone,
       pnl: parseFloat(pnl.toFixed(2)),
       rr_multiple: rrMultiple,
@@ -99,13 +102,16 @@ export default function Home() {
       console.error('Supabase Error:', error);
     } else {
       await fetchTrades();
-      // Reset form
+      // Reset form back to empty (keep date as today)
       setSymbol('');
+      setType('');
       setEntry('');
       setStopLoss('');
       setTakeProfit('');
       setExit('');
       setLotSize('');
+      setDate(today);
+      setEmotion('');
       setChartLink('');
     }
   }
@@ -140,8 +146,10 @@ export default function Home() {
           <select
             value={type}
             onChange={(e) => setType(e.target.value)}
+            required
             className="p-2 rounded bg-slate-800 border border-slate-700"
           >
+            <option value="" disabled hidden>Select Type</option>
             <option value="BUY">BUY</option>
             <option value="SELL">SELL</option>
           </select>
@@ -193,13 +201,16 @@ export default function Home() {
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
+            required
             className="p-2 rounded bg-slate-800 border border-slate-700"
           />
           <select
             value={emotion}
             onChange={(e) => setEmotion(e.target.value)}
+            required
             className="p-2 rounded bg-slate-800 border border-slate-700"
           >
+            <option value="" disabled hidden>Select Emotion</option>
             <option value="Disciplined">Disciplined</option>
             <option value="FOMO">FOMO</option>
             <option value="Hesitant">Hesitant</option>
