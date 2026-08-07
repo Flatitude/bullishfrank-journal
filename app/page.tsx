@@ -76,7 +76,6 @@ export default function Home() {
     const status = pnl >= 0 ? 'WIN' : 'LOSS';
 
     const newTrade = {
-      id: crypto.randomUUID(),
       symbol: symbol.toUpperCase(),
       type,
       entry: entryNum,
@@ -97,8 +96,9 @@ export default function Home() {
 
     if (error) {
       alert('Failed to save trade: ' + error.message);
+      console.error('Supabase Error:', error);
     } else {
-      setTrades([newTrade, ...trades]);
+      await fetchTrades();
       // Reset form
       setSymbol('');
       setEntry('');
@@ -117,7 +117,7 @@ export default function Home() {
     if (error) {
       alert('Failed to delete trade: ' + error.message);
     } else {
-      setTrades(trades.filter((t) => t.id !== id));
+      await fetchTrades();
     }
   }
 
