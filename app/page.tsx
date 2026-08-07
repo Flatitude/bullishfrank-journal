@@ -41,7 +41,7 @@ export default function Home() {
   const [emotion, setEmotion] = useState('');
   const [chartLink, setChartLink] = useState('');
 
-  // 1. Fetch trades from Supabase on load
+  // Fetch trades from Supabase on load
   useEffect(() => {
     fetchTrades();
   }, []);
@@ -61,7 +61,7 @@ export default function Home() {
     setLoading(false);
   }
 
-  // 2. Add new trade to Supabase
+  // Add new trade to Supabase
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -102,7 +102,6 @@ export default function Home() {
       console.error('Supabase Error:', error);
     } else {
       await fetchTrades();
-      // Reset form back to empty (keep date as today)
       setSymbol('');
       setType('');
       setEntry('');
@@ -116,7 +115,7 @@ export default function Home() {
     }
   }
 
-  // 3. Delete trade from Supabase
+  // Delete trade from Supabase
   async function handleDelete(id: string) {
     const { error } = await supabase.from('trades').delete().eq('id', id);
 
@@ -159,6 +158,7 @@ export default function Home() {
             placeholder="Entry Price"
             value={entry}
             onChange={(e) => setEntry(e.target.value)}
+            onWheel={(e) => e.currentTarget.blur()}
             required
             className="p-2 rounded bg-slate-800 border border-slate-700"
           />
@@ -168,6 +168,7 @@ export default function Home() {
             placeholder="Exit Price"
             value={exit}
             onChange={(e) => setExit(e.target.value)}
+            onWheel={(e) => e.currentTarget.blur()}
             required
             className="p-2 rounded bg-slate-800 border border-slate-700"
           />
@@ -177,6 +178,7 @@ export default function Home() {
             placeholder="Stop Loss"
             value={stopLoss}
             onChange={(e) => setStopLoss(e.target.value)}
+            onWheel={(e) => e.currentTarget.blur()}
             required
             className="p-2 rounded bg-slate-800 border border-slate-700"
           />
@@ -186,6 +188,7 @@ export default function Home() {
             placeholder="Take Profit (optional)"
             value={takeProfit}
             onChange={(e) => setTakeProfit(e.target.value)}
+            onWheel={(e) => e.currentTarget.blur()}
             className="p-2 rounded bg-slate-800 border border-slate-700"
           />
           <input
@@ -194,6 +197,7 @@ export default function Home() {
             placeholder="Lot Size"
             value={lotSize}
             onChange={(e) => setLotSize(e.target.value)}
+            onWheel={(e) => e.currentTarget.blur()}
             required
             className="p-2 rounded bg-slate-800 border border-slate-700"
           />
