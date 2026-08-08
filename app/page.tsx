@@ -16,12 +16,13 @@ interface Trade {
   status: 'WIN' | 'LOSS' | 'BREAKEVEN';
   date: string; // YYYY-MM-DD
   notes?: string;
+  tradingview_link?: string;
   created_at?: string;
 }
 
 export default function Dashboard() {
   // Account State
-  const [accountBalance, setAccountBalance] = useState<number>(10000);
+  const [initialBalance, setInitialBalance] = useState<number>(10000);
   const [isEditingBalance, setIsEditingBalance] = useState<boolean>(false);
 
   // Trades & Loading State
@@ -44,6 +45,7 @@ export default function Dashboard() {
     status: 'WIN' as 'WIN' | 'LOSS' | 'BREAKEVEN',
     date: new Date().toISOString().split('T')[0],
     notes: '',
+    tradingview_link: '',
   });
 
   // Fetch Trades from Supabase
@@ -64,6 +66,11 @@ export default function Dashboard() {
       setTrades(data as Trade[]);
     }
     setLoading(false);
+  };
+
+  // Prevent Mouse Wheel Scroll from Incrementing/Decrementing Number Inputs
+  const handleWheelBlur = (e: React.WheelEvent<HTMLInputElement>) => {
+    e.currentTarget.blur();
   };
 
   // Auto Risk:Reward Calculation
@@ -95,10 +102,11 @@ export default function Dashboard() {
       status: formData.status,
       date: formData.date,
       notes: formData.notes,
+      tradingview_link: formData.tradingview_link,
     };
 
     if (editingTradeId) {
-      // Update
+      // Update existing trade
       const { error } = await supabase
         .from('trades')
         .update(tradePayload)
@@ -112,7 +120,7 @@ export default function Dashboard() {
         alert('Failed to update trade: ' + error.message);
       }
     } else {
-      // Create
+      // Create new trade
       const { error } = await supabase.from('trades').insert([tradePayload]);
 
       if (!error) {
@@ -137,6 +145,7 @@ export default function Dashboard() {
       status: trade.status,
       date: trade.date,
       notes: trade.notes || '',
+      tradingview_link: trade.tradingview_link || '',
     });
   };
 
@@ -158,14 +167,16 @@ export default function Dashboard() {
       status: 'WIN',
       date: new Date().toISOString().split('T')[0],
       notes: '',
+      tradingview_link: '',
     });
     setEditingTradeId(null);
   };
 
-  // Analytics Calculations
+  // Dynamic Financial Calculations
   const totalPnL = useMemo(() => trades.reduce((acc, t) => acc + (t.pnl || 0), 0), [trades]);
-  const currentTotalEquity = accountBalance + totalPnL;
+  const totalEquity = useMemo(() => initialBalance + totalPnL, [initialBalance, totalPnL]);
 
+  // Session Analytics Breakdown
   const sessionAnalytics = useMemo(() => {
     const map: Record<string, { pnl: number; wins: number; total: number }> = {
       Asian: { pnl: 0, wins: 0, total: 0 },
@@ -257,34 +268,46 @@ export default function Dashboard() {
             </p>
           </div>
 
-          {/* Account Balance Widget */}
-          <div className="mt-4 sm:mt-0 flex items-center gap-4 bg-zinc-900/90 border border-zinc-800 rounded-xl p-3 px-5 shadow-2xl backdrop-blur-md">
+          {/* Account Balance & Total Equity Display */}
+          <div className="mt-4 sm:mt-0 flex items-center gap-5 bg-zinc-900/90 border border-zinc-800 rounded-xl p-3 px-5 shadow-2xl backdrop-blur-md">
             <div>
-              <p className="text-xs text-zinc-400 uppercase tracking-wider">Account Balance</p>
+              <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Initial Balance</p>
               {isEditingBalance ? (
                 <input
                   type="number"
-                  value={accountBalance}
-                  onChange={(e) => setAccountBalance(parseFloat(e.target.value) || 0)}
+                  onWheel={handleWheelBlur}
+                  value={initialBalance}
+                  onChange={(e) => setInitialBalance(parseFloat(e.target.value) || 0)}
                   onBlur={() => setIsEditingBalance(false)}
                   autoFocus
-                  className="bg-zinc-800 text-amber-400 font-bold text-lg rounded px-2 w-28 focus:outline-none"
+                  className="bg-zinc-800 text-amber-400 font-bold text-base rounded px-1.5 w-28 focus:outline-none"
                 />
               ) : (
                 <p
                   onClick={() => setIsEditingBalance(true)}
-                  className="text-xl font-bold text-amber-400 cursor-pointer hover:underline"
-                  title="Click to edit balance"
+                  className="text-base font-bold text-amber-400 cursor-pointer hover:underline"
+                  title="Click to change starting balance"
                 >
-                  ${currentTotalEquity.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  ${initialBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                 </p>
               )}
             </div>
+
             <div className="h-8 w-px bg-zinc-800" />
+
             <div>
-              <p className="text-xs text-zinc-400 uppercase tracking-wider">Net P&L</p>
-              <p className={`text-lg font-bold ${totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Net P&L</p>
+              <p className={`text-base font-bold ${totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                 {totalPnL >= 0 ? `+$${totalPnL.toFixed(2)}` : `-$${Math.abs(totalPnL).toFixed(2)}`}
+              </p>
+            </div>
+
+            <div className="h-8 w-px bg-zinc-800" />
+
+            <div>
+              <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Total Equity</p>
+              <p className="text-lg font-extrabold text-zinc-100">
+                ${totalEquity.toLocaleString('en-US', { minimumFractionDigits: 2 })}
               </p>
             </div>
           </div>
@@ -324,11 +347,11 @@ export default function Dashboard() {
             </div>
 
             <div className="mt-6 pt-4 border-t border-zinc-800/60 flex justify-between items-center text-xs text-zinc-400">
-              <span>Total Logged Trades: <strong className="text-zinc-200">{trades.length}</strong></span>
+              <span>Total Logged Executions: <strong className="text-zinc-200">{trades.length}</strong></span>
             </div>
           </div>
 
-          {/* Smart Phone-Style Calendar (2 Columns wide) */}
+          {/* Smart Phone-Style Calendar */}
           <div className="lg:col-span-2 bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6 backdrop-blur-md shadow-xl flex flex-col justify-between">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold text-zinc-200">
@@ -470,12 +493,13 @@ export default function Dashboard() {
               </select>
             </div>
 
-            {/* Manual PnL */}
+            {/* Manual PnL (No Mouse Scroll Increment) */}
             <div>
               <label className="block text-xs font-medium text-zinc-400 mb-1">Profit / Loss ($)</label>
               <input
                 type="number"
                 step="any"
+                onWheel={handleWheelBlur}
                 required
                 value={formData.pnl}
                 onChange={(e) => setFormData({ ...formData, pnl: e.target.value })}
@@ -484,12 +508,13 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* Entry Price */}
+            {/* Entry Price (No Mouse Scroll Increment) */}
             <div>
               <label className="block text-xs font-medium text-zinc-400 mb-1">Entry Price</label>
               <input
                 type="number"
                 step="any"
+                onWheel={handleWheelBlur}
                 value={formData.entry_price}
                 onChange={(e) => setFormData({ ...formData, entry_price: e.target.value })}
                 placeholder="1.0850"
@@ -497,12 +522,13 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* Stop Loss */}
+            {/* Stop Loss (No Mouse Scroll Increment) */}
             <div>
               <label className="block text-xs font-medium text-zinc-400 mb-1">Stop Loss</label>
               <input
                 type="number"
                 step="any"
+                onWheel={handleWheelBlur}
                 value={formData.stop_loss}
                 onChange={(e) => setFormData({ ...formData, stop_loss: e.target.value })}
                 placeholder="1.0820"
@@ -510,12 +536,13 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* Take Profit */}
+            {/* Take Profit (No Mouse Scroll Increment) */}
             <div>
               <label className="block text-xs font-medium text-zinc-400 mb-1">Take Profit</label>
               <input
                 type="number"
                 step="any"
+                onWheel={handleWheelBlur}
                 value={formData.take_profit}
                 onChange={(e) => setFormData({ ...formData, take_profit: e.target.value })}
                 placeholder="1.0910"
@@ -541,6 +568,18 @@ export default function Dashboard() {
               <div className="w-full bg-zinc-950/80 border border-zinc-800/80 rounded-lg px-3 py-2 text-sm font-mono text-amber-400 font-bold">
                 {computedRR > 0 ? `1:${computedRR}` : 'N/A'}
               </div>
+            </div>
+
+            {/* TradingView Chart URL */}
+            <div className="sm:col-span-2 md:col-span-4 lg:col-span-6">
+              <label className="block text-xs font-medium text-zinc-400 mb-1">TradingView Chart Link</label>
+              <input
+                type="url"
+                value={formData.tradingview_link}
+                onChange={(e) => setFormData({ ...formData, tradingview_link: e.target.value })}
+                placeholder="https://www.tradingview.com/x/..."
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-amber-500"
+              />
             </div>
 
             {/* Notes / Psychology */}
@@ -586,6 +625,7 @@ export default function Dashboard() {
                     <th className="py-3 px-3">Session</th>
                     <th className="py-3 px-3">R:R</th>
                     <th className="py-3 px-3">P&L ($)</th>
+                    <th className="py-3 px-3">Chart Link</th>
                     <th className="py-3 px-3">Notes</th>
                     <th className="py-3 px-3 text-right">Actions</th>
                   </tr>
@@ -604,6 +644,20 @@ export default function Dashboard() {
                       <td className="py-3 px-3 text-amber-400">1:{t.rr || 'N/A'}</td>
                       <td className={`py-3 px-3 font-bold ${t.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {t.pnl >= 0 ? `+$${t.pnl.toFixed(2)}` : `-$${Math.abs(t.pnl).toFixed(2)}`}
+                      </td>
+                      <td className="py-3 px-3 font-sans">
+                        {t.tradingview_link ? (
+                          <a
+                            href={t.tradingview_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-amber-400 hover:underline text-xs flex items-center gap-1 font-semibold"
+                          >
+                            <span>View Chart</span> &rarr;
+                          </a>
+                        ) : (
+                          <span className="text-zinc-600">-</span>
+                        )}
                       </td>
                       <td className="py-3 px-3 font-sans text-zinc-400 max-w-xs truncate" title={t.notes}>
                         {t.notes || '-'}
