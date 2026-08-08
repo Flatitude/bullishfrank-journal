@@ -23,9 +23,23 @@ interface Trade {
 }
 
 export default function Dashboard() {
-  // Account State
-  const [initialBalance, setInitialBalance] = useState<number>(10000);
+  // Account State with LocalStorage Persistence (Defaults to 0)
+  const [initialBalance, setInitialBalance] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('bullishfrank_initial_balance');
+      return saved !== null ? parseFloat(saved) : 0;
+    }
+    return 0;
+  });
+
   const [isEditingBalance, setIsEditingBalance] = useState<boolean>(false);
+
+  // Sync initialBalance to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('bullishfrank_initial_balance', initialBalance.toString());
+    }
+  }, [initialBalance]);
 
   // Trades & Loading State
   const [trades, setTrades] = useState<Trade[]>([]);
@@ -291,8 +305,12 @@ export default function Dashboard() {
                 <input
                   type="number"
                   onWheel={handleWheelBlur}
-                  value={initialBalance}
-                  onChange={(e) => setInitialBalance(parseFloat(e.target.value) || 0)}
+                  value={initialBalance === 0 ? '' : initialBalance}
+                  placeholder="0.00"
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    setInitialBalance(isNaN(val) ? 0 : val);
+                  }}
                   onBlur={() => setIsEditingBalance(false)}
                   autoFocus
                   className="bg-zinc-800 text-amber-400 font-bold text-base rounded px-1.5 w-28 focus:outline-none"
@@ -301,7 +319,7 @@ export default function Dashboard() {
                 <p
                   onClick={() => setIsEditingBalance(true)}
                   className="text-base font-bold text-amber-400 cursor-pointer hover:underline"
-                  title="Click to change starting balance"
+                  title="Click to set starting balance"
                 >
                   ${initialBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                 </p>
