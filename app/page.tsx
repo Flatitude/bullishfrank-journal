@@ -7,7 +7,9 @@ interface Trade {
   id: string;
   pair: string;
   type: 'BUY' | 'SELL';
-  entry_price: number;
+  lot_size: number;
+  entry: number;
+  exit: number;
   stop_loss: number;
   take_profit: number;
   pnl: number;
@@ -37,7 +39,9 @@ export default function Dashboard() {
   const [formData, setFormData] = useState({
     pair: 'EURUSD',
     type: 'BUY' as 'BUY' | 'SELL',
-    entry_price: '',
+    lot_size: '0.10',
+    entry: '',
+    exit: '',
     stop_loss: '',
     take_profit: '',
     pnl: '',
@@ -75,25 +79,34 @@ export default function Dashboard() {
 
   // Auto Risk:Reward Calculation
   const computedRR = useMemo(() => {
-    const entry = parseFloat(formData.entry_price);
-    const sl = parseFloat(formData.stop_loss);
-    const tp = parseFloat(formData.take_profit);
+    const entryNum = parseFloat(formData.entry);
+    const slNum = parseFloat(formData.stop_loss);
+    const tpNum = parseFloat(formData.take_profit);
 
-    if (!entry || !sl || !tp || entry === sl) return 0;
+    if (!entryNum || !slNum || !tpNum || entryNum === slNum) return 0;
 
-    const risk = Math.abs(entry - sl);
-    const reward = Math.abs(tp - entry);
+    const risk = Math.abs(entryNum - slNum);
+    const reward = Math.abs(tpNum - entryNum);
     return parseFloat((reward / risk).toFixed(2));
-  }, [formData.entry_price, formData.stop_loss, formData.take_profit]);
+  }, [formData.entry, formData.stop_loss, formData.take_profit]);
 
   // Handle Create / Update Trade
   const handleSubmitTrade = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const entryVal = parseFloat(formData.entry) || 0;
+    const exitVal = parseFloat(formData.exit) || 0;
+
     const tradePayload = {
       pair: formData.pair.toUpperCase(),
+      symbol: formData.pair.toUpperCase(),
       type: formData.type,
-      entry_price: parseFloat(formData.entry_price) || 0,
+      trade_type: formData.type,
+      lot_size: parseFloat(formData.lot_size) || 0,
+      entry: entryVal,
+      entry_price: entryVal,
+      exit: exitVal,
+      exit_price: exitVal,
       stop_loss: parseFloat(formData.stop_loss) || 0,
       take_profit: parseFloat(formData.take_profit) || 0,
       pnl: parseFloat(formData.pnl) || 0,
@@ -106,7 +119,6 @@ export default function Dashboard() {
     };
 
     if (editingTradeId) {
-      // Update existing trade
       const { error } = await supabase
         .from('trades')
         .update(tradePayload)
@@ -120,7 +132,6 @@ export default function Dashboard() {
         alert('Failed to update trade: ' + error.message);
       }
     } else {
-      // Create new trade
       const { error } = await supabase.from('trades').insert([tradePayload]);
 
       if (!error) {
@@ -135,15 +146,17 @@ export default function Dashboard() {
   const handleEditClick = (trade: Trade) => {
     setEditingTradeId(trade.id);
     setFormData({
-      pair: trade.pair,
-      type: trade.type,
-      entry_price: trade.entry_price.toString(),
-      stop_loss: trade.stop_loss.toString(),
-      take_profit: trade.take_profit.toString(),
-      pnl: trade.pnl.toString(),
-      session: trade.session,
-      status: trade.status,
-      date: trade.date,
+      pair: trade.pair || '',
+      type: trade.type || 'BUY',
+      lot_size: (trade.lot_size || 0.1).toString(),
+      entry: (trade.entry || '').toString(),
+      exit: (trade.exit || '').toString(),
+      stop_loss: (trade.stop_loss || '').toString(),
+      take_profit: (trade.take_profit || '').toString(),
+      pnl: (trade.pnl || 0).toString(),
+      session: trade.session || 'London',
+      status: trade.status || 'WIN',
+      date: trade.date || new Date().toISOString().split('T')[0],
       notes: trade.notes || '',
       tradingview_link: trade.tradingview_link || '',
     });
@@ -159,7 +172,9 @@ export default function Dashboard() {
     setFormData({
       pair: 'EURUSD',
       type: 'BUY',
-      entry_price: '',
+      lot_size: '0.10',
+      entry: '',
+      exit: '',
       stop_loss: '',
       take_profit: '',
       pnl: '',
@@ -351,7 +366,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Smart Phone-Style Calendar */}
+          {/* Smart Calendar */}
           <div className="lg:col-span-2 bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6 backdrop-blur-md shadow-xl flex flex-col justify-between">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold text-zinc-200">
@@ -464,6 +479,21 @@ export default function Dashboard() {
               </select>
             </div>
 
+            {/* Lot Size */}
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 mb-1">Lot Size</label>
+              <input
+                type="number"
+                step="any"
+                onWheel={handleWheelBlur}
+                required
+                value={formData.lot_size}
+                onChange={(e) => setFormData({ ...formData, lot_size: e.target.value })}
+                placeholder="0.10"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-amber-500"
+              />
+            </div>
+
             {/* Session */}
             <div>
               <label className="block text-xs font-medium text-zinc-400 mb-1">Session</label>
@@ -493,7 +523,7 @@ export default function Dashboard() {
               </select>
             </div>
 
-            {/* Manual PnL (No Mouse Scroll Increment) */}
+            {/* Profit / Loss */}
             <div>
               <label className="block text-xs font-medium text-zinc-400 mb-1">Profit / Loss ($)</label>
               <input
@@ -508,21 +538,36 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* Entry Price (No Mouse Scroll Increment) */}
+            {/* Entry Price */}
             <div>
               <label className="block text-xs font-medium text-zinc-400 mb-1">Entry Price</label>
               <input
                 type="number"
                 step="any"
                 onWheel={handleWheelBlur}
-                value={formData.entry_price}
-                onChange={(e) => setFormData({ ...formData, entry_price: e.target.value })}
+                required
+                value={formData.entry}
+                onChange={(e) => setFormData({ ...formData, entry: e.target.value })}
                 placeholder="1.0850"
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-amber-500"
               />
             </div>
 
-            {/* Stop Loss (No Mouse Scroll Increment) */}
+            {/* Exit Price */}
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 mb-1">Exit Price</label>
+              <input
+                type="number"
+                step="any"
+                onWheel={handleWheelBlur}
+                value={formData.exit}
+                onChange={(e) => setFormData({ ...formData, exit: e.target.value })}
+                placeholder="1.0910"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-amber-500"
+              />
+            </div>
+
+            {/* Stop Loss */}
             <div>
               <label className="block text-xs font-medium text-zinc-400 mb-1">Stop Loss</label>
               <input
@@ -536,7 +581,7 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* Take Profit (No Mouse Scroll Increment) */}
+            {/* Take Profit */}
             <div>
               <label className="block text-xs font-medium text-zinc-400 mb-1">Take Profit</label>
               <input
@@ -622,6 +667,9 @@ export default function Dashboard() {
                     <th className="py-3 px-3">Date</th>
                     <th className="py-3 px-3">Pair</th>
                     <th className="py-3 px-3">Type</th>
+                    <th className="py-3 px-3">Lot</th>
+                    <th className="py-3 px-3">Entry</th>
+                    <th className="py-3 px-3">Exit</th>
                     <th className="py-3 px-3">Session</th>
                     <th className="py-3 px-3">R:R</th>
                     <th className="py-3 px-3">P&L ($)</th>
@@ -640,6 +688,9 @@ export default function Dashboard() {
                           {t.type}
                         </span>
                       </td>
+                      <td className="py-3 px-3 text-zinc-300">{t.lot_size || '-'}</td>
+                      <td className="py-3 px-3 text-zinc-300">{t.entry || '-'}</td>
+                      <td className="py-3 px-3 text-zinc-300">{t.exit || '-'}</td>
                       <td className="py-3 px-3 text-zinc-400">{t.session}</td>
                       <td className="py-3 px-3 text-amber-400">1:{t.rr || 'N/A'}</td>
                       <td className={`py-3 px-3 font-bold ${t.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
