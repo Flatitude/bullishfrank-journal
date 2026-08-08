@@ -28,7 +28,7 @@ export default function Home() {
   // Default date string (YYYY-MM-DD)
   const today = new Date().toISOString().split('T')[0];
 
-  // Form State - All empty by default except date
+  // Form State - Blank defaults except date
   const [symbol, setSymbol] = useState('');
   const [type, setType] = useState('');
   const [entry, setEntry] = useState('');
@@ -41,7 +41,7 @@ export default function Home() {
   const [emotion, setEmotion] = useState('');
   const [chartLink, setChartLink] = useState('');
 
-  // Fetch trades from Supabase on load
+  // 1. Fetch trades from Supabase on page load
   useEffect(() => {
     fetchTrades();
   }, []);
@@ -61,7 +61,7 @@ export default function Home() {
     setLoading(false);
   }
 
-  // Add new trade to Supabase
+  // 2. Add new trade to Supabase
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -98,10 +98,13 @@ export default function Home() {
     const { error } = await supabase.from('trades').insert([newTrade]);
 
     if (error) {
-      alert('Failed to save trade: ' + error.message);
-      console.error('Supabase Error:', error);
+      alert('Failed to save trade to database: ' + error.message);
+      console.error('Supabase Insert Error:', error);
     } else {
+      // Re-fetch clean data from Supabase immediately
       await fetchTrades();
+
+      // Reset form fields
       setSymbol('');
       setType('');
       setEntry('');
@@ -115,7 +118,7 @@ export default function Home() {
     }
   }
 
-  // Delete trade from Supabase
+  // 3. Delete trade from Supabase
   async function handleDelete(id: string) {
     const { error } = await supabase.from('trades').delete().eq('id', id);
 
@@ -126,12 +129,35 @@ export default function Home() {
     }
   }
 
+  // Calculate live summary metrics from database rows
+  const totalPnl = trades.reduce((acc, t) => acc + (t.pnl || 0), 0);
+  const winCount = trades.filter((t) => t.status === 'WIN').length;
+  const winRate = trades.length > 0 ? ((winCount / trades.length) * 100).toFixed(1) : '0.0';
+
   return (
-    <main className="max-w-4xl mx-auto p-6 space-y-8">
+    <main className="max-w-5xl mx-auto p-6 space-y-8">
       <h1 className="text-3xl font-bold text-center">BullishFrank Trading Journal</h1>
 
+      {/* Account Overview Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-slate-900 p-5 rounded-xl border border-slate-800 text-white">
+          <p className="text-xs text-gray-400 font-semibold uppercase">Total P&L</p>
+          <p className={`text-2xl font-bold mt-1 ${totalPnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            ${totalPnl.toFixed(2)}
+          </p>
+        </div>
+        <div className="bg-slate-900 p-5 rounded-xl border border-slate-800 text-white">
+          <p className="text-xs text-gray-400 font-semibold uppercase">Win Rate</p>
+          <p className="text-2xl font-bold text-blue-400 mt-1">{winRate}%</p>
+        </div>
+        <div className="bg-slate-900 p-5 rounded-xl border border-slate-800 text-white">
+          <p className="text-xs text-gray-400 font-semibold uppercase">Total Trades</p>
+          <p className="text-2xl font-bold text-white mt-1">{trades.length}</p>
+        </div>
+      </div>
+
       {/* Trade Entry Form */}
-      <form onSubmit={handleSubmit} className="bg-slate-900 p-6 rounded-xl space-y-4 text-white">
+      <form onSubmit={handleSubmit} className="bg-slate-900 p-6 rounded-xl space-y-4 text-white border border-slate-800">
         <h2 className="text-xl font-semibold mb-4">Log New Trade</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <input
@@ -140,13 +166,13 @@ export default function Home() {
             value={symbol}
             onChange={(e) => setSymbol(e.target.value)}
             required
-            className="p-2 rounded bg-slate-800 border border-slate-700"
+            className="p-2 rounded bg-slate-800 border border-slate-700 focus:outline-none focus:border-blue-500"
           />
           <select
             value={type}
             onChange={(e) => setType(e.target.value)}
             required
-            className="p-2 rounded bg-slate-800 border border-slate-700"
+            className="p-2 rounded bg-slate-800 border border-slate-700 focus:outline-none focus:border-blue-500"
           >
             <option value="" disabled hidden>Select Type</option>
             <option value="BUY">BUY</option>
@@ -160,7 +186,7 @@ export default function Home() {
             onChange={(e) => setEntry(e.target.value)}
             onWheel={(e) => e.currentTarget.blur()}
             required
-            className="p-2 rounded bg-slate-800 border border-slate-700"
+            className="p-2 rounded bg-slate-800 border border-slate-700 focus:outline-none focus:border-blue-500"
           />
           <input
             type="number"
@@ -170,7 +196,7 @@ export default function Home() {
             onChange={(e) => setExit(e.target.value)}
             onWheel={(e) => e.currentTarget.blur()}
             required
-            className="p-2 rounded bg-slate-800 border border-slate-700"
+            className="p-2 rounded bg-slate-800 border border-slate-700 focus:outline-none focus:border-blue-500"
           />
           <input
             type="number"
@@ -180,7 +206,7 @@ export default function Home() {
             onChange={(e) => setStopLoss(e.target.value)}
             onWheel={(e) => e.currentTarget.blur()}
             required
-            className="p-2 rounded bg-slate-800 border border-slate-700"
+            className="p-2 rounded bg-slate-800 border border-slate-700 focus:outline-none focus:border-blue-500"
           />
           <input
             type="number"
@@ -189,7 +215,7 @@ export default function Home() {
             value={takeProfit}
             onChange={(e) => setTakeProfit(e.target.value)}
             onWheel={(e) => e.currentTarget.blur()}
-            className="p-2 rounded bg-slate-800 border border-slate-700"
+            className="p-2 rounded bg-slate-800 border border-slate-700 focus:outline-none focus:border-blue-500"
           />
           <input
             type="number"
@@ -199,20 +225,20 @@ export default function Home() {
             onChange={(e) => setLotSize(e.target.value)}
             onWheel={(e) => e.currentTarget.blur()}
             required
-            className="p-2 rounded bg-slate-800 border border-slate-700"
+            className="p-2 rounded bg-slate-800 border border-slate-700 focus:outline-none focus:border-blue-500"
           />
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
             required
-            className="p-2 rounded bg-slate-800 border border-slate-700"
+            className="p-2 rounded bg-slate-800 border border-slate-700 focus:outline-none focus:border-blue-500"
           />
           <select
             value={emotion}
             onChange={(e) => setEmotion(e.target.value)}
             required
-            className="p-2 rounded bg-slate-800 border border-slate-700"
+            className="p-2 rounded bg-slate-800 border border-slate-700 focus:outline-none focus:border-blue-500"
           >
             <option value="" disabled hidden>Select Emotion</option>
             <option value="Disciplined">Disciplined</option>
@@ -225,7 +251,7 @@ export default function Home() {
             placeholder="TradingView Chart Link"
             value={chartLink}
             onChange={(e) => setChartLink(e.target.value)}
-            className="p-2 rounded bg-slate-800 border border-slate-700 col-span-2"
+            className="p-2 rounded bg-slate-800 border border-slate-700 focus:outline-none focus:border-blue-500 col-span-2"
           />
         </div>
         <button
@@ -237,7 +263,7 @@ export default function Home() {
       </form>
 
       {/* Trade Log Table */}
-      <div className="bg-slate-900 p-6 rounded-xl text-white">
+      <div className="bg-slate-900 p-6 rounded-xl text-white border border-slate-800">
         <h2 className="text-xl font-semibold mb-4">Trade History</h2>
         {loading ? (
           <p className="text-gray-400">Loading trades from cloud database...</p>
